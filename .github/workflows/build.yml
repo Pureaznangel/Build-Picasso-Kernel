@@ -16,6 +16,11 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/EndCredits/kernel_xiaomi_sm7250.git -b android-4.19 kernel-source
 
+      - name: Setup KernelSU
+        run: |
+          cd kernel-source
+          curl -ls https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh | bash -
+
       - name: Clone Toolchain (Proton Clang)
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
