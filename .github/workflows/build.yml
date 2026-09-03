@@ -19,23 +19,12 @@ jobs:
       - name: Setup KernelSU
         run: |
           cd kernel-source
-          # Download and run KernelSU setup with error checking
-          if ! curl -fsSL https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh | bash -; then
-            echo "KernelSU setup failed, attempting manual installation..."
-            if [ ! -d "drivers/kernelsu" ]; then
-              mkdir -p drivers/kernelsu
-            fi
-            git clone https://github.com/tiann/KernelSU.git drivers/kernelsu/KernelSU || true
-          fi
           
-          # Verify the Kconfig file exists
-          if [ ! -f "drivers/kernelsu/Kconfig" ]; then
-            echo "Warning: KernelSU Kconfig not found, creating stub..."
-            if [ ! -d "drivers/kernelsu" ]; then
-              mkdir -p drivers/kernelsu
-            fi
-            touch drivers/kernelsu/Kconfig
-          fi
+          # Dọn dẹp symlink hoặc thư mục rác từ source gốc (nếu có) để tránh xung đột
+          rm -rf drivers/kernelsu KernelSU
+          
+          # Tải và chạy script cài đặt chính thức của KernelSU
+          curl -ls https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh | bash -
           
       - name: Clone Toolchain (Proton Clang)
         run: |
