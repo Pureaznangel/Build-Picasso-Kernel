@@ -16,22 +16,27 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/EndCredits/kernel_xiaomi_sm7250.git -b android-4.19 kernel-source
           
-      - name: Setup KernelSU
+            - name: Setup KernelSU
         run: |
           cd kernel-source
           # Download and run KernelSU setup with error checking
           if ! curl -fsSL https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh | bash -; then
             echo "KernelSU setup failed, attempting manual installation..."
-            mkdir -p drivers/kernelsu
+            if [ ! -d "drivers/kernelsu" ]; then
+              mkdir -p drivers/kernelsu
+            fi
             git clone https://github.com/tiann/KernelSU.git drivers/kernelsu/KernelSU || true
           fi
           
           # Verify the Kconfig file exists
           if [ ! -f "drivers/kernelsu/Kconfig" ]; then
             echo "Warning: KernelSU Kconfig not found, creating stub..."
-            mkdir -p drivers/kernelsu
+            if [ ! -d "drivers/kernelsu" ]; then
+              mkdir -p drivers/kernelsu
+            fi
             touch drivers/kernelsu/Kconfig
-          fi      
+          fi
+          
       - name: Clone Toolchain (Proton Clang)
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
