@@ -16,7 +16,7 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/EndCredits/kernel_xiaomi_sm7250.git -b android-4.19 kernel-source
           
-            - name: Setup KernelSU
+      - name: Setup KernelSU
         run: |
           cd kernel-source
           # Download and run KernelSU setup with error checking
