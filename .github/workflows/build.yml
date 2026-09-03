@@ -15,7 +15,7 @@ jobs:
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 https://github.com/EndCredits/kernel_xiaomi_sm7250.git -b android-4.19 kernel-source
-          
+
       - name: Setup KernelSU
         run: |
           cd kernel-source
@@ -25,7 +25,7 @@ jobs:
           
           # Tải và chạy script cài đặt chính thức của KernelSU
           curl -ls https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh | bash -
-          
+
       - name: Clone Toolchain (Proton Clang)
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
@@ -75,23 +75,23 @@ jobs:
       - name: Pack Kernel with AnyKernel3
         run: |
           git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
-      
+          
           # Copy Image hoặc Image.gz vào thư mục AnyKernel3
           if [ -f kernel-source/out/arch/arm64/boot/Image.gz ]; then
-          cp kernel-source/out/arch/arm64/boot/Image.gz AnyKernel3/
-       else
-        cp kernel-source/out/arch/arm64/boot/Image AnyKernel3/
-       fi
-      
-       cd AnyKernel3
-       # Cấu hình AnyKernel3 nhận diện thiết bị và tự động tìm phân vùng boot
-       sed -i 's/device.name1=maguro/device.name1=picasso/' anykernel.sh
-       sed -i 's/device.name2=toro/device.name2=k305g/' anykernel.sh
-       sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;|block=auto;|' anykernel.sh
-       
-       # Nén thành file ZIP
-       zip -r9 ../Picasso-Docker-Kernel.zip *      
+            cp kernel-source/out/arch/arm64/boot/Image.gz AnyKernel3/
+          else
+            cp kernel-source/out/arch/arm64/boot/Image AnyKernel3/
+          fi
           
+          cd AnyKernel3
+          # Cấu hình AnyKernel3 nhận diện thiết bị picasso và tự động dò phân vùng boot
+          sed -i 's/device.name1=maguro/device.name1=picasso/' anykernel.sh
+          sed -i 's/device.name2=toro/device.name2=k305g/' anykernel.sh
+          sed -i 's|block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;|block=auto;|' anykernel.sh
+          
+          # Nén thành file ZIP có thể flash qua Recovery
+          zip -r9 ../Picasso-Docker-Kernel.zip *
+
       - name: Upload Kernel Artifact
         uses: actions/upload-artifact@v4
         with:
