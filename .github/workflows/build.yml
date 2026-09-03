@@ -43,7 +43,7 @@ jobs:
           export LLVM_IAS=1
           
           # Áp dụng file config mặc định của picasso
-          make O=out vendor/picasso_defconfig
+          make O=out vendor/picasso_user_defconfig
           
           # Inject các config bắt buộc cho Docker và DroidSpace OSS
           cat <<EOF >> out/.config
