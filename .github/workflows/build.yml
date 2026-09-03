@@ -1,0 +1,88 @@
+name: Build Picasso Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+
+      - name: Clone Kernel Source
+        run: |
+          git clone --depth=1 https://github.com/EndCredits/kernel_xiaomi_sm7250.git -b android-4.19 kernel-source
+
+      - name: Clone Toolchain (Proton Clang)
+        run: |
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
+
+      - name: Build Kernel with Docker/DroidSpace Configs
+        run: |
+          cd kernel-source
+          export PATH="$GITHUB_WORKSPACE/toolchain/bin:$PATH"
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export CC=clang
+          export LLVM=1
+          export LLVM_IAS=1
+          
+          # Áp dụng file config mặc định của picasso
+          make O=out vendor/picasso_defconfig
+          
+          # Inject các config bắt buộc cho Docker và DroidSpace OSS
+          cat <<EOF >> out/.config
+          CONFIG_NAMESPACES=y
+          CONFIG_NET_NS=y
+          CONFIG_PID_NS=y
+          CONFIG_IPC_NS=y
+          CONFIG_UTS_NS=y
+          CONFIG_CGROUPS=y
+          CONFIG_CGROUP_CPUACCT=y
+          CONFIG_CGROUP_DEVICE=y
+          CONFIG_CGROUP_FREEZER=y
+          CONFIG_CGROUP_SCHED=y
+          CONFIG_CPUSETS=y
+          CONFIG_MEMCG=y
+          CONFIG_VETH=y
+          CONFIG_BRIDGE=y
+          CONFIG_OVERLAY_FS=y
+          CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
+          CONFIG_NETFILTER_XT_MATCH_CONNTRACK=y
+          EOF
+          
+          # Cập nhật lại config để kernel xử lý các dependency liên quan
+          make O=out ARCH=arm64 olddefconfig
+          
+          # Tiến hành biên dịch kernel (Tận dụng tối đa luồng CPU)
+          make O=out ARCH=arm64 -j$(nproc --all)
+
+      - name: Pack Kernel with AnyKernel3
+        run: |
+          git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
+          
+          # Copy Image hoặc Image.gz vào thư mục AnyKernel3
+          if [ -f kernel-source/out/arch/arm64/boot/Image.gz ]; then
+            cp kernel-source/out/arch/arm64/boot/Image.gz AnyKernel3/
+          else
+            cp kernel-source/out/arch/arm64/boot/Image AnyKernel3/
+          fi
+          
+          cd AnyKernel3
+          # Cấu hình AnyKernel3 nhận diện thiết bị mã picasso
+          sed -i 's/device.name1=maguro/device.name1=picasso/' anykernel.sh
+          sed -i 's/device.name2=toro/device.name2=k305g/' anykernel.sh
+          
+          # Nén thành file ZIP có thể flash qua Recovery
+          zip -r9 ../Picasso-Docker-Kernel.zip *
+          
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Picasso-Docker-Kernel
+          path: Picasso-Docker-Kernel.zip
