@@ -1,4 +1,4 @@
-name: Build Picasso Kernel
+name: Build Picasso Kernel for Droidspaces
 
 on:
   workflow_dispatch:
@@ -26,7 +26,7 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
 
-      - name: Build Kernel with Docker/DroidSpace Configs
+      - name: Build Kernel with Full Droidspaces OSS Configs
         run: |
           cd kernel-source
           export PATH="$GITHUB_WORKSPACE/toolchain/bin:$PATH"
@@ -41,26 +41,21 @@ jobs:
           # Áp dụng file config mặc định của picasso
           make O=out vendor/picasso_user_defconfig
           
-          # Inject các config bắt buộc cho Docker và DroidSpace OSS
+          # Inject đầy đủ các config theo Documentation Droidspaces-OSS
           cat <<EOF >> out/.config
-          # Cấu hình bắt buộc cho IPC Namespace
+          # [MUST HAVE] SysV IPC & IPC Namespace
           CONFIG_SYSVIPC=y
           CONFIG_SYSVIPC_SYSCTL=y
           CONFIG_POSIX_MQUEUE=y
-          
-          # Cấu hình Namespaces đầy đủ
+          CONFIG_IPC_NS=y
+
+          # [MUST HAVE] Namespaces
           CONFIG_NAMESPACES=y
           CONFIG_NET_NS=y
           CONFIG_PID_NS=y
-          CONFIG_IPC_NS=y
           CONFIG_UTS_NS=y
-          CONFIG_USER_NS=y
-          
-          # Cấu hình Devtmpfs cho Hardware Access
-          CONFIG_DEVTMPFS=y
-          CONFIG_DEVTMPFS_MOUNT=y
-          
-          # Cgroups và Mạng
+
+          # [MUST HAVE] Cgroups & System
           CONFIG_CGROUPS=y
           CONFIG_CGROUP_CPUACCT=y
           CONFIG_CGROUP_DEVICE=y
@@ -68,9 +63,30 @@ jobs:
           CONFIG_CGROUP_SCHED=y
           CONFIG_CPUSETS=y
           CONFIG_MEMCG=y
+          CONFIG_SECCOMP=y
+          CONFIG_SECCOMP_FILTER=y
+          CONFIG_PROC_FS=y
+          CONFIG_SYSFS=y
+
+          # [RECOMMENDED] Devtmpfs, PTY & Event Loop
+          CONFIG_DEVTMPFS=y
+          CONFIG_DEVTMPFS_MOUNT=y
+          CONFIG_EPOLL=y
+          CONFIG_SIGNALFD=y
+          CONFIG_BLK_DEV_LOOP=y
+          CONFIG_EXT4_FS=y
+          CONFIG_UNIX98_PTYS=y
+          CONFIG_DEVPTS_MULTIPLE_INSTANCES=y
+          CONFIG_CGROUP_NS=y
+
+          # [OPTIONAL] Docker, UserNS, OverlayFS & Network
+          CONFIG_USER_NS=y
+          CONFIG_OVERLAY_FS=y
+          CONFIG_FUSE_FS=y
           CONFIG_VETH=y
           CONFIG_BRIDGE=y
-          CONFIG_OVERLAY_FS=y
+          CONFIG_TUN=y
+          CONFIG_IPV6=y
           CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
           CONFIG_NETFILTER_XT_MATCH_CONNTRACK=y
           EOF
@@ -81,13 +97,42 @@ jobs:
           # Tiến hành biên dịch kernel
           make O=out ARCH=arm64 -j$(nproc --all)
 
-      - name: Verify Kernel Configs
+      - name: Verify Kernel Configs for Droidspaces
         run: |
-          echo "=========================================="
-          echo " KẾT QUẢ KIỂM TRA CẤU HÌNH DROIDSPACES"
-          echo "=========================================="
-          grep -E "CONFIG_IPC_NS|CONFIG_SYSVIPC|CONFIG_USER_NS|CONFIG_DEVTMPFS" kernel-source/out/.config || true
-          echo "=========================================="
+          echo "===================================================="
+          echo "       BẢNG KIỂM TRA CẤU HÌNH DROIDSPACES OSS       "
+          echo "===================================================="
+          
+          CONFIG_FILE="kernel-source/out/.config"
+          
+          check_config() {
+            if grep -q "^$1=y" "$CONFIG_FILE"; then
+              echo "[✓] $1 = y"
+            else
+              echo "[✗] $1 MISSING / NOT ENABLED"
+            fi
+          }
+
+          echo "--- [MUST HAVE] ---"
+          check_config "CONFIG_SYSVIPC"
+          check_config "CONFIG_IPC_NS"
+          check_config "CONFIG_PID_NS"
+          check_config "CONFIG_NET_NS"
+          check_config "CONFIG_UTS_NS"
+          check_config "CONFIG_SECCOMP"
+          
+          echo "--- [RECOMMENDED] ---"
+          check_config "CONFIG_DEVTMPFS"
+          check_config "CONFIG_CGROUP_NS"
+          check_config "CONFIG_BLK_DEV_LOOP"
+          
+          echo "--- [OPTIONAL & DOCKER] ---"
+          check_config "CONFIG_USER_NS"
+          check_config "CONFIG_OVERLAY_FS"
+          check_config "CONFIG_VETH"
+          check_config "CONFIG_BRIDGE"
+          
+          echo "===================================================="
 
       - name: Pack Kernel with AnyKernel3
         run: |
@@ -102,7 +147,7 @@ jobs:
           cat << 'EOF' > AnyKernel3/anykernel.sh
           # AnyKernel3 Setup
           properties() { '
-          kernel.string=Picasso Docker Kernel
+          kernel.string=Picasso Droidspaces Kernel
           do.devicecheck=1
           do.modules=0
           do.systemless=1
@@ -127,12 +172,12 @@ jobs:
           EOF
           
           cd AnyKernel3
-          zip -r9 ../Picasso-Docker-Kernel.zip *
+          zip -r9 ../Picasso-Droidspaces-Kernel.zip *
 
       - name: Upload Kernel & Config Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Picasso-Kernel-Build
+          name: Picasso-Droidspaces-Kernel
           path: |
-            Picasso-Docker-Kernel.zip
+            Picasso-Droidspaces-Kernel.zip
             kernel-source/out/.config
