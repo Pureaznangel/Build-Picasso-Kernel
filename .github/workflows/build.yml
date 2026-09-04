@@ -19,11 +19,7 @@ jobs:
       - name: Setup KernelSU
         run: |
           cd kernel-source
-          
-          # Dọn dẹp symlink hoặc thư mục rác từ source gốc (nếu có) để tránh xung đột
           rm -rf drivers/kernelsu KernelSU
-          
-          # Tải và chạy script cài đặt chính thức của KernelSU
           curl -ls https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh | bash -
 
       - name: Clone Toolchain (Proton Clang)
@@ -82,24 +78,29 @@ jobs:
           # Cập nhật lại config để kernel xử lý các dependency liên quan
           make O=out ARCH=arm64 olddefconfig
           
-          # Tiến hành biên dịch kernel (Tận dụng tối đa luồng CPU)
+          # Tiến hành biên dịch kernel
           make O=out ARCH=arm64 -j$(nproc --all)
+
+      - name: Verify Kernel Configs
+        run: |
+          echo "=========================================="
+          echo " KẾT QUẢ KIỂM TRA CẤU HÌNH DROIDSPACES"
+          echo "=========================================="
+          grep -E "CONFIG_IPC_NS|CONFIG_SYSVIPC|CONFIG_USER_NS|CONFIG_DEVTMPFS" kernel-source/out/.config || true
+          echo "=========================================="
 
       - name: Pack Kernel with AnyKernel3
         run: |
           git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
           
-          # Copy Image hoặc Image.gz vào thư mục AnyKernel3
           if [ -f kernel-source/out/arch/arm64/boot/Image.gz ]; then
             cp kernel-source/out/arch/arm64/boot/Image.gz AnyKernel3/
           else
             cp kernel-source/out/arch/arm64/boot/Image AnyKernel3/
           fi
           
-          # Ghi đè file anykernel.sh chuẩn cho Redmi K30 5G (Snapdragon 765G)
           cat << 'EOF' > AnyKernel3/anykernel.sh
           # AnyKernel3 Setup
-          # begin properties
           properties() { '
           kernel.string=Picasso Docker Kernel
           do.devicecheck=1
@@ -110,34 +111,28 @@ jobs:
           os.patchlevel=auto
           device.name1=picasso
           device.name2=k305g
-          device.name3=
-          device.name4=
-          device.name5=
           supported.versions=
           supported.patchlevels=
-          '; } # end properties
+          '; }
 
-          # shell variables
           block=/dev/block/bootdevice/by-name/boot;
           is_slot_device=0;
           ramdisk_compression=auto;
           patch_vbmeta_flag=0;
 
-          ## AnyKernel methods (standard header)
           . tools/ak3-core.sh;
 
-          ## AnyKernel install
           split_boot;
           flash_boot;
-          ## end install
           EOF
           
           cd AnyKernel3
-          # Nén thành file ZIP có thể flash qua Recovery
           zip -r9 ../Picasso-Docker-Kernel.zip *
 
-      - name: Upload Kernel Artifact
+      - name: Upload Kernel & Config Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Picasso-Docker-Kernel
-          path: Picasso-Docker-Kernel.zip
+          name: Picasso-Kernel-Build
+          path: |
+            Picasso-Docker-Kernel.zip
+            kernel-source/out/.config
